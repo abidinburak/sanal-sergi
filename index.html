@@ -1,21 +1,202 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="tr">
 <head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sanal Sergi - Ürün Galerisi</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <style>
+    html, body { margin:0; height:100%; overflow:hidden; background:#f3f3f3; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    .ui {
+      position: fixed; inset: 0; pointer-events: none;
+      display: grid; grid-template-rows: auto 1fr auto;
+      padding: 14px;
+    }
+    .topbar {
+      pointer-events: none;
+      display:flex; gap:10px; align-items:center; justify-content:space-between;
+    }
+    .title {
+      pointer-events:none;
+      background: rgba(255,255,255,.85);
+      padding:10px 12px; border-radius:12px;
+      box-shadow: 0 6px 18px rgba(0,0,0,.08);
+      max-width: 70vw;
+    }
+    .title b { display:block; font-size:14px; }
+    .title span { display:block; font-size:12px; opacity:.75; }
+
+    .controls {
+      pointer-events: auto;
+      display:flex; gap:10px; justify-content:center; align-items:center;
+    }
+    button {
+      border:0; border-radius:14px;
+      padding:10px 14px; font-weight:600;
+      background: rgba(255,255,255,.9);
+      box-shadow: 0 6px 18px rgba(0,0,0,.10);
+      cursor:pointer;
+    }
+    button:active { transform: translateY(1px); }
+    .chip {
+      pointer-events:none;
+      background: rgba(255,255,255,.85);
+      padding:8px 10px; border-radius:999px;
+      box-shadow: 0 6px 18px rgba(0,0,0,.08);
+      font-size:12px;
+    }
+    .loading {
+      position: fixed; inset: 0;
+      display:none;
+      align-items:center; justify-content:center;
+      background: rgba(243,243,243,.6);
+      backdrop-filter: blur(2px);
+      pointer-events:none;
+      font-weight:700;
+    }
+    .loading.show { display:flex; }
+  </style>
 </head>
+
 <body>
-<a-scene>
-  <a-sky color="#ECECEC"></a-sky>
+  <div class="ui">
+    <div class="topbar">
+      <div class="title">
+        <b id="productName">Ürün</b>
+        <span id="productHint">Sol/Sağ ok veya butonlarla değiştir</span>
+      </div>
+      <div class="chip" id="counter">1 / 1</div>
+    </div>
 
-  <a-entity position="0 1.6 5">
-    <a-camera wasd-controls look-controls></a-camera>
-  </a-entity>
+    <div></div>
 
-  <a-gltf-model src="https://baskitasarim.net/models/canakkale.glb"
-                position="0 0 -3"
-                scale="1 1 1">
-  </a-gltf-model>
+    <div class="controls">
+      <button id="prevBtn">⬅ Önceki</button>
+      <button id="toggleSpinBtn">⏸ Döndür</button>
+      <button id="nextBtn">Sonraki ➡</button>
+    </div>
+  </div>
 
-</a-scene>
+  <div class="loading" id="loading">Yükleniyor…</div>
+
+  <a-scene
+    background="color: #f3f3f3"
+    renderer="colorManagement: true; physicallyCorrectLights: true; antialias: true;"
+    loading-screen="enabled:false">
+
+    <!-- Işıklar -->
+    <a-entity light="type: ambient; intensity: 0.9"></a-entity>
+    <a-entity light="type: directional; intensity: 1.1" position="2 4 3"></a-entity>
+
+    <!-- “Stüdyo” zemin -->
+    <a-plane rotation="-90 0 0" width="30" height="30" color="#ffffff"></a-plane>
+
+    <!-- Kamera: ürüne yakın -->
+    <a-entity position="0 1.6 3">
+      <a-camera look-controls="enabled:true" wasd-controls="enabled:false"></a-camera>
+    </a-entity>
+
+    <!-- Ürün burada gösterilecek -->
+    <a-entity id="productRig" position="0 0 -1.6" rotation="0 0 0">
+      <a-gltf-model id="productModel"
+        position="0 0 0"
+        rotation="0 0 0"
+        scale="1 1 1">
+      </a-gltf-model>
+    </a-entity>
+  </a-scene>
+
+  <script>
+    // 1) ÜRÜN LİSTESİ — burayı 40 ürünle dolduracağız
+    const PRODUCTS = [
+      { name: "Çanakkale", url: "https://www.baskitasarim.net/models/canakkale.glb", scale: 1.2 },
+      // { name: "Ürün 2", url: "https://www.baskitasarim.net/models/urun2.glb", scale: 1.0 },
+      // ...
+    ];
+
+    let index = 0;
+    let spinning = true;
+
+    const modelEl = document.getElementById("productModel");
+    const rigEl   = document.getElementById("productRig");
+    const nameEl  = document.getElementById("productName");
+    const counter = document.getElementById("counter");
+    const loading = document.getElementById("loading");
+    const toggleSpinBtn = document.getElementById("toggleSpinBtn");
+
+    function showLoading(on) {
+      loading.classList.toggle("show", !!on);
+    }
+
+    function updateUI() {
+      nameEl.textContent = PRODUCTS[index]?.name ?? "Ürün";
+      counter.textContent = `${index + 1} / ${PRODUCTS.length}`;
+    }
+
+    function loadProduct(i) {
+      index = (i + PRODUCTS.length) % PRODUCTS.length;
+      const p = PRODUCTS[index];
+
+      showLoading(true);
+      updateUI();
+
+      // Model yeniden yüklenirken görünmesin (bulanıklık/ghosting hissini azaltır)
+      modelEl.setAttribute("visible", "false");
+
+      // Ölçek ayarı (ürünler farklı boyutlardaysa tek tek düzeltmek için)
+      const s = p.scale ?? 1;
+      modelEl.setAttribute("scale", `${s} ${s} ${s}`);
+
+      // Kaynağı değiştir
+      modelEl.setAttribute("src", p.url);
+
+      // Yüklenince tekrar görünür yap
+      const onLoaded = () => {
+        modelEl.setAttribute("visible", "true");
+        showLoading(false);
+        modelEl.removeEventListener("model-loaded", onLoaded);
+      };
+      const onError = (e) => {
+        console.error("Model yüklenemedi:", p.url, e);
+        showLoading(false);
+        modelEl.removeEventListener("model-error", onError);
+      };
+
+      modelEl.addEventListener("model-loaded", onLoaded);
+      modelEl.addEventListener("model-error", onError);
+
+      // Rig rotasyonu sıfırla
+      rigEl.setAttribute("rotation", "0 0 0");
+    }
+
+    // Döndürme animasyonu
+    function tick() {
+      if (spinning) {
+        const r = rigEl.getAttribute("rotation");
+        rigEl.setAttribute("rotation", `${r.x} ${r.y + 0.25} ${r.z}`);
+      }
+      requestAnimationFrame(tick);
+    }
+
+    // Kontroller
+    document.getElementById("prevBtn").onclick = () => loadProduct(index - 1);
+    document.getElementById("nextBtn").onclick = () => loadProduct(index + 1);
+    toggleSpinBtn.onclick = () => {
+      spinning = !spinning;
+      toggleSpinBtn.textContent = spinning ? "⏸ Döndür" : "▶ Döndür";
+    };
+
+    // Klavye okları
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft") loadProduct(index - 1);
+      if (e.key === "ArrowRight") loadProduct(index + 1);
+    });
+
+    // Başlat
+    updateUI();
+    loadProduct(0);
+    tick();
+  </script>
 </body>
 </html>
