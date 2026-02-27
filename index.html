@@ -3,162 +3,148 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Sanal Sergi - Ürün Galerisi</title>
+  <title>Sanal Sergi</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
   <style>
     html, body { margin:0; height:100%; overflow:hidden; background:#f3f3f3; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
-    .ui {
-      position: fixed; inset: 0; pointer-events: none;
-      display: grid; grid-template-rows: auto 1fr auto;
-      padding: 14px;
-    }
-    .topbar {
-      pointer-events: none;
-      display:flex; gap:10px; align-items:center; justify-content:space-between;
-    }
-    .title {
-      pointer-events:none;
-      background: rgba(255,255,255,.85);
-      padding:10px 12px; border-radius:12px;
-      box-shadow: 0 6px 18px rgba(0,0,0,.08);
-      max-width: 70vw;
-    }
-    .title b { display:block; font-size:14px; }
-    .title span { display:block; font-size:12px; opacity:.75; }
-
-    .controls {
-      pointer-events: auto;
-      display:flex; gap:10px; justify-content:center; align-items:center;
-    }
-    button {
-      border:0; border-radius:14px;
-      padding:10px 14px; font-weight:600;
-      background: rgba(255,255,255,.9);
-      box-shadow: 0 6px 18px rgba(0,0,0,.10);
-      cursor:pointer;
-    }
-    button:active { transform: translateY(1px); }
-    .chip {
-      pointer-events:none;
-      background: rgba(255,255,255,.85);
-      padding:8px 10px; border-radius:999px;
-      box-shadow: 0 6px 18px rgba(0,0,0,.08);
-      font-size:12px;
-    }
-    .loading {
-      position: fixed; inset: 0;
-      display:none;
-      align-items:center; justify-content:center;
-      background: rgba(243,243,243,.6);
-      backdrop-filter: blur(2px);
-      pointer-events:none;
-      font-weight:700;
-    }
-    .loading.show { display:flex; }
+    .ui { position:fixed; inset:0; pointer-events:none; display:grid; grid-template-rows:auto 1fr auto; padding:14px; }
+    .top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+    .card { pointer-events:none; background:rgba(255,255,255,.9); padding:10px 12px; border-radius:12px; box-shadow:0 6px 18px rgba(0,0,0,.08); max-width:70vw; }
+    .card b{display:block;font-size:14px}
+    .card span{display:block;font-size:12px;opacity:.75;margin-top:2px}
+    .chip { pointer-events:none; background:rgba(255,255,255,.9); padding:8px 10px; border-radius:999px; box-shadow:0 6px 18px rgba(0,0,0,.08); font-size:12px; }
+    .controls { pointer-events:auto; display:flex; gap:10px; justify-content:center; align-items:center; }
+    button{ border:0; border-radius:14px; padding:10px 14px; font-weight:700; background:rgba(255,255,255,.95); box-shadow:0 6px 18px rgba(0,0,0,.10); cursor:pointer; }
+    button:active{ transform:translateY(1px); }
+    .loading{ position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+      background:rgba(243,243,243,.65); backdrop-filter: blur(2px); font-weight:800; }
+    .loading.show{display:flex}
   </style>
 </head>
 
 <body>
   <div class="ui">
-    <div class="topbar">
-      <div class="title">
-        <b id="productName">Ürün</b>
-        <span id="productHint">Sol/Sağ ok veya butonlarla değiştir</span>
+    <div class="top">
+      <div class="card">
+        <b id="name">Ürün</b>
+        <span>Mouse ile sürükle: döndür • Scroll: zoom • Ok tuşları: değiştir</span>
       </div>
-      <div class="chip" id="counter">1 / 1</div>
+      <div class="chip" id="count">1 / 1</div>
     </div>
-
     <div></div>
-
     <div class="controls">
-      <button id="prevBtn">⬅ Önceki</button>
-      <button id="toggleSpinBtn">⏸ Döndür</button>
-      <button id="nextBtn">Sonraki ➡</button>
+      <button id="prev">⬅ Önceki</button>
+      <button id="reset">⤾ Sıfırla</button>
+      <button id="next">Sonraki ➡</button>
     </div>
   </div>
-
   <div class="loading" id="loading">Yükleniyor…</div>
 
   <a-scene
-    background="color: #f3f3f3"
-    renderer="colorManagement: true; physicallyCorrectLights: true; antialias: true;"
+    background="color:#f3f3f3"
+    renderer="colorManagement:true; physicallyCorrectLights:true; antialias:true;"
     loading-screen="enabled:false">
 
-    <!-- Işıklar -->
+    <!-- Işıklar (stüdyo gibi) -->
     <a-entity light="type: ambient; intensity: 0.9"></a-entity>
     <a-entity light="type: directional; intensity: 1.1" position="2 4 3"></a-entity>
+    <a-entity light="type: directional; intensity: 0.6" position="-2 3 -2"></a-entity>
 
-    <!-- “Stüdyo” zemin -->
-    <a-plane rotation="-90 0 0" width="30" height="30" color="#ffffff"></a-plane>
+    <!-- Zemin -->
+    <a-plane rotation="-90 0 0" width="50" height="50" color="#ffffff"></a-plane>
 
-    <!-- Kamera: ürüne yakın -->
-    <a-entity position="0 1.6 3">
-      <a-camera look-controls="enabled:true" wasd-controls="enabled:false"></a-camera>
+    <!-- Kamera rig -->
+    <a-entity id="camRig" position="0 0 0">
+      <a-entity id="camera" camera position="0 1.6 3" look-controls="enabled:false"></a-entity>
     </a-entity>
 
-    <!-- Ürün burada gösterilecek -->
-    <a-entity id="productRig" position="0 0 -1.6" rotation="0 0 0">
-      <a-gltf-model id="productModel"
-        position="0 0 0"
-        rotation="0 0 0"
-        scale="1 1 1">
-      </a-gltf-model>
+    <!-- Model rig -->
+    <a-entity id="rig" position="0 0 -2">
+      <a-gltf-model id="model" visible="false"></a-gltf-model>
     </a-entity>
   </a-scene>
 
   <script>
-    // 1) ÜRÜN LİSTESİ — burayı 40 ürünle dolduracağız
+    // ✅ Burayı ürünlerinle dolduracağız
     const PRODUCTS = [
-      { name: "Çanakkale", url: "https://www.baskitasarim.net/models/canakkale.glb", scale: 1.2 },
-      // { name: "Ürün 2", url: "https://www.baskitasarim.net/models/urun2.glb", scale: 1.0 },
-      // ...
+      { name: "Çanakkale", url: "https://www.baskitasarim.net/models/canakkale.glb" },
+      // { name:"Ürün 2", url:"https://www.baskitasarim.net/models/urun2.glb" },
     ];
 
-    let index = 0;
-    let spinning = true;
+    const nameEl = document.getElementById("name");
+    const countEl = document.getElementById("count");
+    const loadingEl = document.getElementById("loading");
 
-    const modelEl = document.getElementById("productModel");
-    const rigEl   = document.getElementById("productRig");
-    const nameEl  = document.getElementById("productName");
-    const counter = document.getElementById("counter");
-    const loading = document.getElementById("loading");
-    const toggleSpinBtn = document.getElementById("toggleSpinBtn");
+    const rig = document.querySelector("#rig");
+    const modelEl = document.querySelector("#model");
+    const cam = document.querySelector("#camera");
 
-    function showLoading(on) {
-      loading.classList.toggle("show", !!on);
+    let idx = 0;
+    let dragging = false;
+    let lastX = 0;
+    let yaw = 0;
+    let zoom = 3; // kamera z
+
+    function showLoading(on){ loadingEl.classList.toggle("show", !!on); }
+
+    function ui(){
+      nameEl.textContent = PRODUCTS[idx]?.name ?? "Ürün";
+      countEl.textContent = `${idx+1} / ${PRODUCTS.length}`;
     }
 
-    function updateUI() {
-      nameEl.textContent = PRODUCTS[index]?.name ?? "Ürün";
-      counter.textContent = `${index + 1} / ${PRODUCTS.length}`;
+    function resetView(){
+      yaw = 0;
+      rig.setAttribute("rotation", `0 0 0`);
+      zoom = 3;
+      cam.setAttribute("position", `0 1.6 ${zoom}`);
     }
 
-    function loadProduct(i) {
-      index = (i + PRODUCTS.length) % PRODUCTS.length;
-      const p = PRODUCTS[index];
+    // 🧠 Modeli otomatik ekrana sığdır (bounding box ile)
+    function fitModelToView(object3D){
+      // bounding box
+      const box = new THREE.Box3().setFromObject(object3D);
+      const size = new THREE.Vector3();
+      const center = new THREE.Vector3();
+      box.getSize(size);
+      box.getCenter(center);
 
+      // Model merkezini 0,0,0'a al (pivot)
+      object3D.position.sub(center);
+
+      // En büyük boyuta göre ölçek
+      const maxDim = Math.max(size.x, size.y, size.z) || 1;
+      const target = 1.5;            // ekrandaki hedef “yaklaşık boy”
+      const scale = target / maxDim; // otomatik scale
+      object3D.scale.setScalar(scale);
+
+      // Kamerayı modele göre ayarla
+      // model büyüdükçe zoom uzaklaşsın
+      const newZoom = 2.8; // başlangıç
+      zoom = newZoom;
+      cam.setAttribute("position", `0 1.6 ${zoom}`);
+    }
+
+    function load(i){
+      idx = (i + PRODUCTS.length) % PRODUCTS.length;
+      ui();
       showLoading(true);
-      updateUI();
-
-      // Model yeniden yüklenirken görünmesin (bulanıklık/ghosting hissini azaltır)
       modelEl.setAttribute("visible", "false");
+      modelEl.setAttribute("src", PRODUCTS[idx].url);
 
-      // Ölçek ayarı (ürünler farklı boyutlardaysa tek tek düzeltmek için)
-      const s = p.scale ?? 1;
-      modelEl.setAttribute("scale", `${s} ${s} ${s}`);
-
-      // Kaynağı değiştir
-      modelEl.setAttribute("src", p.url);
-
-      // Yüklenince tekrar görünür yap
       const onLoaded = () => {
+        // A-Frame object3D
+        const obj = modelEl.getObject3D("mesh");
+        if (obj) {
+          fitModelToView(obj);
+        }
         modelEl.setAttribute("visible", "true");
         showLoading(false);
         modelEl.removeEventListener("model-loaded", onLoaded);
       };
+
       const onError = (e) => {
-        console.error("Model yüklenemedi:", p.url, e);
+        console.error("Model yüklenemedi:", PRODUCTS[idx].url, e);
         showLoading(false);
         modelEl.removeEventListener("model-error", onError);
       };
@@ -166,37 +152,41 @@
       modelEl.addEventListener("model-loaded", onLoaded);
       modelEl.addEventListener("model-error", onError);
 
-      // Rig rotasyonu sıfırla
-      rigEl.setAttribute("rotation", "0 0 0");
+      resetView();
     }
 
-    // Döndürme animasyonu
-    function tick() {
-      if (spinning) {
-        const r = rigEl.getAttribute("rotation");
-        rigEl.setAttribute("rotation", `${r.x} ${r.y + 0.25} ${r.z}`);
-      }
-      requestAnimationFrame(tick);
-    }
+    // UI butonlar
+    document.getElementById("prev").onclick = () => load(idx - 1);
+    document.getElementById("next").onclick = () => load(idx + 1);
+    document.getElementById("reset").onclick = () => resetView();
 
-    // Kontroller
-    document.getElementById("prevBtn").onclick = () => loadProduct(index - 1);
-    document.getElementById("nextBtn").onclick = () => loadProduct(index + 1);
-    toggleSpinBtn.onclick = () => {
-      spinning = !spinning;
-      toggleSpinBtn.textContent = spinning ? "⏸ Döndür" : "▶ Döndür";
-    };
-
-    // Klavye okları
+    // Klavye
     window.addEventListener("keydown", (e) => {
-      if (e.key === "ArrowLeft") loadProduct(index - 1);
-      if (e.key === "ArrowRight") loadProduct(index + 1);
+      if (e.key === "ArrowLeft") load(idx - 1);
+      if (e.key === "ArrowRight") load(idx + 1);
     });
 
+    // Drag ile döndür
+    window.addEventListener("pointerdown", (e) => { dragging = true; lastX = e.clientX; });
+    window.addEventListener("pointerup", () => dragging = false);
+    window.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      const dx = e.clientX - lastX;
+      lastX = e.clientX;
+      yaw += dx * 0.25;
+      rig.setAttribute("rotation", `0 ${yaw} 0`);
+    });
+
+    // Scroll ile zoom
+    window.addEventListener("wheel", (e) => {
+      const delta = Math.sign(e.deltaY);
+      zoom = Math.min(8, Math.max(1.8, zoom + delta * 0.2));
+      cam.setAttribute("position", `0 1.6 ${zoom}`);
+    }, { passive:true });
+
     // Başlat
-    updateUI();
-    loadProduct(0);
-    tick();
+    ui();
+    load(0);
   </script>
 </body>
 </html>
